@@ -34,7 +34,7 @@ export default function MapPage() {
   const [stops, setStops] = useState<Stop[]>([]);
   const [plan, setPlan] = useState<string>("");
 
-  // ✅ Use useJsApiLoader to load Google Maps
+  // Use useJsApiLoader to load Google Maps
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
   });
@@ -88,7 +88,7 @@ export default function MapPage() {
   if (loadError) return <div>Error loading Google Maps</div>;
   if (!isLoaded) return <div>Loading map...</div>;
 
-  // ✅ Center map dynamically if stops exist
+  // Center map dynamically if stops exist
   const center =
     stops.length > 0
       ? { lat: stops[0].lat, lng: stops[0].lng }

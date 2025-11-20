@@ -8,8 +8,6 @@ interface Trip {
   start_date: string;
   end_date: string;
   created_by: string;
-  lat?: number;
-  lng?: number;
 }
 
 export default function Dashboard() {
@@ -22,15 +20,7 @@ export default function Dashboard() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
-  const session = JSON.parse(localStorage.getItem("supabase_session") || "null");
-
-  // Redirect if no session
   useEffect(() => {
-    if (!session) {
-      navigate("/login");
-      return;
-    }
-
     const fetchTrips = async () => {
       try {
         const res = await fetch("http://localhost:3000/trips");
@@ -42,11 +32,9 @@ export default function Dashboard() {
         setLoading(false);
       }
     };
-
     fetchTrips();
-  }, [session, navigate]);
+  }, []);
 
-  // Add a new trip
   const handleAddTrip = async () => {
     if (!title || !destination || !startDate || !endDate) {
       alert("Please fill out all fields");
@@ -62,46 +50,31 @@ export default function Dashboard() {
           destination,
           start_date: startDate,
           end_date: endDate,
-          user_id: session.user.id,
         }),
       });
 
       const data = await res.json();
-
       if (!res.ok || !data[0]) {
         alert(`Error adding trip: ${data.message || "Unknown error"}`);
       } else {
         const newTrip = data[0];
         setTrips((prev) => [...prev, newTrip]);
 
-        // Clear inputs
         setTitle("");
         setDestination("");
         setStartDate("");
         setEndDate("");
 
-        // Redirect to MapPage
-        navigate(`/mappage/${newTrip.id}`, { state: { trip: newTrip } });
+        navigate(`/itinerarypage/${newTrip.id}`, { state: { trip: newTrip } });
       }
     } catch (err) {
       console.error("Add trip error:", err);
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("supabase_session");
-    navigate("/login");
-  };
-
-  if (!session) return null;
-
   return (
     <div style={{ padding: "20px", maxWidth: "600px", margin: "0 auto" }}>
       <h1>Dashboard</h1>
-
-      <button onClick={handleLogout} style={{ marginBottom: "20px" }}>
-        Logout
-      </button>
 
       <h2>Create a New Trip</h2>
 
@@ -111,21 +84,18 @@ export default function Dashboard() {
         onChange={(e) => setTitle(e.target.value)}
         style={{ width: "100%", margin: "5px 0", padding: "8px" }}
       />
-
       <input
         placeholder="Destination"
         value={destination}
         onChange={(e) => setDestination(e.target.value)}
         style={{ width: "100%", margin: "5px 0", padding: "8px" }}
       />
-
       <input
         type="date"
         value={startDate}
         onChange={(e) => setStartDate(e.target.value)}
         style={{ width: "100%", margin: "5px 0", padding: "8px" }}
       />
-
       <input
         type="date"
         value={endDate}
@@ -133,10 +103,7 @@ export default function Dashboard() {
         style={{ width: "100%", margin: "5px 0", padding: "8px" }}
       />
 
-      <button
-        onClick={handleAddTrip}
-        style={{ margin: "10px 0", padding: "8px 16px" }}
-      >
+      <button onClick={handleAddTrip} style={{ margin: "10px 0", padding: "8px 16px" }}>
         Create Trip
       </button>
 
@@ -151,17 +118,10 @@ export default function Dashboard() {
           {trips.map((trip) => (
             <li
               key={trip.id}
-              style={{
-                cursor: "pointer",
-                color: "blue",
-                textDecoration: "underline",
-              }}
-              onClick={() =>
-                navigate(`/mappage/${trip.id}`, { state: { trip } })
-              }
+              style={{ cursor: "pointer", color: "blue", textDecoration: "underline" }}
+              onClick={() => navigate(`/itinerarypage/${trip.id}`, { state: { trip } })}
             >
-              <strong>{trip.title}</strong> - {trip.destination} (
-              {trip.start_date} to {trip.end_date})
+              <strong>{trip.title}</strong> - {trip.destination} ({trip.start_date} to {trip.end_date})
             </li>
           ))}
         </ul>

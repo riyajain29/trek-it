@@ -4,7 +4,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import SignupPage from '../pages/SignupPage';
 import LoginPage from '../pages/LoginPage';
 import Dashboard from '../pages/Dashboard';
-import MapPage from '../pages/MapPage';
+import MapPage from '../pages/ItineraryPage';
 
 import { APIProvider } from '@vis.gl/react-google-maps';
 
@@ -54,7 +54,7 @@ function App() {
           />
 
           {/* Trip Map Page */}
-          <Route path="/mappage/:tripId" element={<MapPage />} />
+          <Route path="/itinerarypage/:tripId" element={<MapPage />} />
 
           {/* Default Redirect */}
           <Route

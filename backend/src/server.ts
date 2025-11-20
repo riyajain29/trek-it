@@ -3,23 +3,8 @@ import cors from '@fastify/cors';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import OpenAI from 'openai';
-import { z } from 'zod';
 
 dotenv.config();
-
-// JSON schema for itinerary
-const ItinerarySchema = z.object({
-  itinerary: z.array(
-    z.object({
-      stop: z.string(),
-      lat: z.number(),
-      lng: z.number(),
-      order: z.number(),
-      time: z.string(),
-      notes: z.string().optional(),
-    })
-  ),
-});
 
 // OpenAI client
 const openai = new OpenAI({
@@ -31,6 +16,20 @@ const fastify = Fastify();
 
 // Enable CORS
 await fastify.register(cors, { origin: '*' });
+
+// Ensure Fastify parses JSON request bodies
+fastify.addContentTypeParser(
+  'application/json',
+  { parseAs: 'string' },
+  (req, body: string, done) => {
+    try {
+      const json = JSON.parse(body);
+      done(null, json);
+    } catch (err) {
+      done(err as Error, undefined);
+    }
+  }
+);
 
 // Supabase client
 const supabase = createClient(
@@ -46,8 +45,13 @@ fastify.get('/', async () => {
 // Signup route
 fastify.post('/signup', async (req, reply) => {
   const { email, password } = req.body as { email: string; password: string };
+  console.log('Signup body:', req.body);
+  console.log('URL:', process.env.SUPABASE_URL);
+  console.log('Key length:', process.env.SUPABASE_ANON_KEY?.length);
+
   const { data, error } = await supabase.auth.signUp({ email, password });
   if (error) return reply.code(400).send(error);
+
   return data;
 });
 
@@ -56,6 +60,7 @@ fastify.post('/login', async (req, reply) => {
   const { email, password } = req.body as { email: string; password: string };
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return reply.code(400).send(error);
+
   return data;
 });
 
@@ -87,47 +92,41 @@ fastify.get('/trips', async (_, reply) => {
 // Generate Trip Plan Route
 fastify.post('/generate-plan', async (req, reply) => {
   try {
-    const body = req.body as { stops: { lat: number; lng: number }[] };
+    const body = req.body as { stops: { lat: number; lng: number }[] } | undefined;
 
-    if (!body?.stops || body.stops.length === 0) {
+    if (!body || !body.stops || body.stops.length === 0) {
       return reply.code(400).send({ error: 'No stops provided' });
     }
 
+    // Create a readable list of stops for GPT
     const stopsList = body.stops
       .map((s, i) => `Stop ${i + 1}: (${s.lat}, ${s.lng})`)
       .join('\n');
 
-    // Use any to bypass TS error on response_format
-    const completion = await (openai.responses as any).create({
-      model: "gpt-4.1-mini",
-      input: `
-Generate an optimized travel itinerary for these stops:
-
-${stopsList}
-
-Return ONLY JSON with ordered stops.
-      `,
-      response_format: {
-        type: "json_schema",
-        schema: ItinerarySchema,
-        strict: true
-      }
+    // Generate plan with GPT
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a travel planner AI that creates optimized itineraries.',
+        },
+        {
+          role: 'user',
+          content: `Plan an efficient trip visiting these stops:\n${stopsList}. Include time suggestions and route order.`,
+        },
+      ],
     });
 
-    // Access structured output safely
-    const plan = completion.output?.[0]?.content?.[0]?.value;
-
-    if (!plan) return reply.code(500).send({ error: 'Failed to parse itinerary' });
-
-    return reply.send(plan);
-
+    const plan = completion.choices[0]?.message?.content ?? 'No plan generated.';
+    return { plan };
   } catch (err) {
-    console.error("AI error:", err);
-    return reply.code(500).send({ error: "Failed to generate itinerary" });
+    console.error('Error generating plan:', err);
+    return reply.code(500).send({ error: 'Failed to generate plan' });
   }
 });
 
-// Start server
+// Start the server
 const start = async () => {
   try {
     await fastify.listen({ port: 3000 });
